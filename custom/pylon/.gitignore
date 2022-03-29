@@ -1,0 +1,11 @@
+csv
+save
+eval_loc
+eval_auc
+.ipynb_checkpoints
+__pycache__
+data/images
+.vscode
+pretrain
+data/nih14/images
+data/vin/images
