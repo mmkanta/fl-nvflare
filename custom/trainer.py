@@ -1,5 +1,8 @@
 import os
 
+import pydicom
+from pydicom.pixel_data_handlers.util import apply_voi_lut
+
 import torch
 from torch import nn
 from torch.optim import SGD
@@ -27,7 +30,8 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Dataset
 from sklearn import metrics, model_selection, preprocessing
 from PIL import Image
-import transformers
+from albumentations import HorizontalFlip, Rotate, RandomBrightnessContrast, Flip, Compose, RandomResizedCrop
+from typing import List, Optional, Dict, Generator, NamedTuple, Any, Tuple, Union, Mapping
 import pandas as pd
 import numpy as np
 
@@ -37,6 +41,47 @@ image_w = 256
 image_h = 256
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def dicom2array(path, voi_lut=True, fix_monochrome=True):
+    """Convert DICOM file to numy array
+    
+    Args: 
+        path (str): Path to the DICOM file to be converted
+        voi_lut (bool): Whether or not VOI LUT is available
+        fix_monochrome (bool): Whether or not to apply MONOCHROME fix
+        
+    Returns:
+        Numpy array of the respective DICOM file
+    """
+    
+    # Use the pydicom library to read the DICOM file
+    dicom = pydicom.read_file(path)
+    
+    # VOI LUT (if available by DICOM device) is used to transform raw DICOM data to "human-friendly" view
+    if voi_lut:
+        data = apply_voi_lut(dicom.pixel_array, dicom)
+    else:
+        data = dicom.pixel_array
+        
+    # Depending on this value, X-ray may look inverted - fix that
+    if fix_monochrome and dicom.PhotometricInterpretation == "MONOCHROME1":
+        data = np.amax(data) - data
+        
+    # Normalize the image array
+    data = data - np.min(data)
+    data = data / np.max(data)
+    data = (data * 255).astype(np.uint8)
+    
+    return data
+
+def augment(p=0.5):
+    return Compose([
+        RandomResizedCrop(image_h,image_w,scale=(0.7, 1.0), p=1.0),
+        HorizontalFlip(p=0.5),
+        RandomBrightnessContrast(0.5,0.5,p=0.5),
+        Rotate(90, border_mode=0, p=0.5),
+    ], p=p)
+augmentation = augment()
 
 class XRayDataset(Dataset):
     def __init__(self, df, image_dir, transform=None, target_transform=None):
@@ -51,7 +96,13 @@ class XRayDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = os.path.join(self.image_dir, self.img_files[idx])
-        image = read_image(img_path, mode=ImageReadMode.GRAY)/255
+        if '.dcm' in self.img_files[idx]:
+          image = dicom2array(img_path)
+          image = torch.tensor(image)/255
+          image = image.unsqueeze(0)
+        else:
+          image = read_image(img_path, mode=ImageReadMode.GRAY)/255
+
         label = self.img_labels[idx]
         if self.transform:
             image = image[0].numpy()
@@ -91,7 +142,7 @@ class Trainer(Executor):
         train = pd.read_csv(os.path.join(PATH_NAME, 'label', f'train_{site}.csv'))
         val = pd.read_csv(os.path.join(PATH_NAME, 'label', f'val_{site}.csv'))
 
-        train_dataset = XRayDataset(train, IMAGE_PATH)
+        train_dataset = XRayDataset(train, IMAGE_PATH) # augmentation?
         val_dataset = XRayDataset(val, IMAGE_PATH)
         self._train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False,
                                         num_workers=0)

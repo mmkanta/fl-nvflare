@@ -11,6 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+
+import pydicom
+from pydicom.pixel_data_handlers.util import apply_voi_lut
 
 import torch
 from torch.utils.data import DataLoader
@@ -35,7 +39,6 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Dataset
 from sklearn import metrics, model_selection, preprocessing
 from PIL import Image
-import transformers
 import pandas as pd
 import numpy as np
 
@@ -45,6 +48,38 @@ image_w = 256
 image_h = 256
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def dicom2array(path, voi_lut=True, fix_monochrome=True):
+    """Convert DICOM file to numy array
+    
+    Args: 
+        path (str): Path to the DICOM file to be converted
+        voi_lut (bool): Whether or not VOI LUT is available
+        fix_monochrome (bool): Whether or not to apply MONOCHROME fix
+        
+    Returns:
+        Numpy array of the respective DICOM file
+    """
+    
+    # Use the pydicom library to read the DICOM file
+    dicom = pydicom.read_file(path)
+    
+    # VOI LUT (if available by DICOM device) is used to transform raw DICOM data to "human-friendly" view
+    if voi_lut:
+        data = apply_voi_lut(dicom.pixel_array, dicom)
+    else:
+        data = dicom.pixel_array
+        
+    # Depending on this value, X-ray may look inverted - fix that
+    if fix_monochrome and dicom.PhotometricInterpretation == "MONOCHROME1":
+        data = np.amax(data) - data
+        
+    # Normalize the image array
+    data = data - np.min(data)
+    data = data / np.max(data)
+    data = (data * 255).astype(np.uint8)
+    
+    return data
 
 class XRayDataset(Dataset):
     def __init__(self, df, image_dir, transform=None, target_transform=None):
@@ -59,7 +94,13 @@ class XRayDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = os.path.join(self.image_dir, self.img_files[idx])
-        image = read_image(img_path, mode=ImageReadMode.GRAY)/255
+        if '.dcm' in self.img_files[idx]:
+          image = dicom2array(img_path)
+          image = torch.tensor(image)/255
+          image = image.unsqueeze(0)
+        else:
+          image = read_image(img_path, mode=ImageReadMode.GRAY)/255
+
         label = self.img_labels[idx]
         if self.transform:
             image = image[0].numpy()
