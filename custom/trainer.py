@@ -81,7 +81,6 @@ def augment(p=0.5):
         RandomBrightnessContrast(0.5,0.5,p=0.5),
         Rotate(90, border_mode=0, p=0.5),
     ], p=p)
-augmentation = augment()
 
 class XRayDataset(Dataset):
     def __init__(self, df, image_dir, transform=None, target_transform=None):
@@ -115,6 +114,37 @@ class XRayDataset(Dataset):
         image = image.expand(3, -1, -1)
         return image, label
 
+class EarlyStopping():
+    """
+    Early stopping to stop the training when the loss does not improve after
+    certain epochs.
+    """
+    def __init__(self, patience=5, min_delta=0):
+        """
+        :param patience: how many epochs to wait before stopping when loss is
+               not improving
+        :param min_delta: minimum difference between new loss and old loss for
+               new loss to be considered as an improvement
+        """
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.best_loss = None
+        self.early_stop = False
+    def __call__(self, val_loss):
+        if self.best_loss == None:
+            self.best_loss = val_loss
+        elif self.best_loss - val_loss > self.min_delta:
+            self.best_loss = val_loss
+            # reset counter if validation loss improves
+            self.counter = 0
+        elif self.best_loss - val_loss < self.min_delta:
+            self.counter += 1
+            print(f"INFO: Early stopping counter {self.counter} of {self.patience}")
+            if self.counter >= self.patience:
+                print('INFO: Early stopping')
+                self.early_stop = True
+
 class Trainer(Executor):
 
     def __init__(self, lr=1e-3, epochs=50, train_task_name=AppConstants.TASK_TRAIN,
@@ -127,9 +157,12 @@ class Trainer(Executor):
         self._submit_model_task_name = submit_model_task_name
         self._exclude_vars = exclude_vars
         self.batch_size = 32
+        self.transform = augment()
 
     def setup(self, fl_ctx):
         self.client_name = fl_ctx.get_identity_name()
+
+        ### PATH
         site = ""
         if self.client_name == "site-c":
             site = "c"
@@ -142,7 +175,7 @@ class Trainer(Executor):
         train = pd.read_csv(os.path.join(PATH_NAME, 'label', f'train_{site}.csv'))
         val = pd.read_csv(os.path.join(PATH_NAME, 'label', f'val_{site}.csv'))
 
-        train_dataset = XRayDataset(train, IMAGE_PATH) # augmentation?
+        train_dataset = XRayDataset(train, IMAGE_PATH) # transform?
         val_dataset = XRayDataset(val, IMAGE_PATH)
         self._train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False,
                                         num_workers=0)
@@ -210,12 +243,15 @@ class Trainer(Executor):
                     loss = self.loss(outputs, labels)
                     losses.append(loss.item())
             val_loss = np.mean(losses)
-
             self.logger.info(f"Local\n epochs ${epoch}\nval_loss: ${val_loss}")
             if val_loss < min_val_loss:
                 min_val_loss = val_loss
                 torch.save(self.model.state_dict(), "./best_model.pt")
                 self.logger.info(f"Model saved as current val_loss is : {val_loss}")
+            self.early_stopping(val_loss)
+            if self.early_stopping.early_stop:
+                self.logger.info(f"Early stopping at val_loss : {val_loss}")
+                break
 
         tmp_dict = torch.load("./best_model.pt")
         self.model.load_state_dict(tmp_dict)
@@ -238,6 +274,7 @@ class Trainer(Executor):
 
                 # Convert weights to tensor. Run training
                 torch_weights = {k: torch.as_tensor(v) for k, v in dxo.data.items()}
+                self.early_stopping = EarlyStopping(patience=10)
                 self.local_train(fl_ctx, torch_weights, abort_signal)
 
                 # Check the abort_signal after training.
