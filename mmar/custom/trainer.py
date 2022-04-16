@@ -22,8 +22,7 @@ from nvflare.app_common.abstract.model import make_model_learnable, model_learna
 from nvflare.app_common.app_constant import AppConstants
 from nvflare.app_common.pt.pt_fed_utils import PTModelPersistenceFormatManager
 from custom.pt_constants import PTConstants
-from custom.pylon.pylon import PylonConfig
-from custom.pylon.utils.pretrain import *
+from net import Net
 
 import torchvision
 from torchvision import datasets, transforms
@@ -41,7 +40,7 @@ classes = 3 # number of findings
 image_w = 256
 image_h = 256
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def dicom2array(path, voi_lut=True, fix_monochrome=True):
     """Convert DICOM file to numy array
@@ -188,13 +187,7 @@ class Trainer(Executor):
         self.total_step = len(self._train_loader) * self._epochs
         self._n_iterations = len(self._train_loader)
 
-        net_conf = PylonConfig(
-            n_in=1,
-            n_out=classes,
-            up_type='2layer',
-            freeze='enc',
-        )
-        self.model = net_conf.make_model()
+        self.model = Net()
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
