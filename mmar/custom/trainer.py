@@ -22,6 +22,7 @@ from nvflare.app_common.abstract.model import make_model_learnable, model_learna
 from nvflare.app_common.app_constant import AppConstants
 from nvflare.app_common.pt.pt_fed_utils import PTModelPersistenceFormatManager
 from custom.pt_constants import PTConstants
+from custom.model_constants import classes, labels_col, image_h, image_w
 from net import Net
 
 import torchvision
@@ -34,13 +35,7 @@ from typing import List, Optional, Dict, Generator, NamedTuple, Any, Tuple, Unio
 import pandas as pd
 import numpy as np
 
-### LABELS
-labels_col = ['Cardiomegaly','Effusion','Edema']
-classes = 3 # number of findings
-image_w = 256
-image_h = 256
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BASE_DIR = '/path'
 
 def dicom2array(path, voi_lut=True, fix_monochrome=True):
     """Convert DICOM file to numy array
@@ -85,7 +80,7 @@ def augment(p=0.5):
 class XRayDataset(Dataset):
     def __init__(self, df, image_dir, transform=None, target_transform=None):
         self.img_files = df['Image'].tolist()
-        self.img_labels = df[labels_col].values.tolist()
+        self.img_labels = df[labels_col].values
         self.transform = transform
         self.target_transform = target_transform
         self.image_dir = image_dir
@@ -111,7 +106,7 @@ class XRayDataset(Dataset):
         image = image.unsqueeze(0)
         image = F.interpolate(image, size=image_w)
         image = image[0]
-        image = image.expand(3, -1, -1)
+        # image = image.expand(3, -1, -1)
         return image, label
 
 class EarlyStopping():
@@ -215,7 +210,7 @@ class Trainer(Executor):
                     outputs = self.model(images)
                     outputs = outputs.pred
                     # print(outputs)
-                    loss = self.loss(outputs, labels)
+                    loss = self.loss(outputs, labels.float())
 
                     # Backward and optimize
                     self.optimizer.zero_grad()
@@ -234,7 +229,7 @@ class Trainer(Executor):
                 with torch.set_grad_enabled(False):
                     outputs = self.model(images)
                     outputs = outputs.pred
-                    loss = self.loss(outputs, labels)
+                    loss = self.loss(outputs, labels.float())
                     losses.append(loss.item())
             val_loss = np.mean(losses)
             self.logger.info(f"Local\n epochs ${epoch}\nval_loss: ${val_loss}")
