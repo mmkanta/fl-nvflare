@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import os
 
 import pydicom
@@ -30,9 +31,9 @@ from nvflare.apis.fl_context import FLContext
 from nvflare.apis.shareable import Shareable, make_reply
 from nvflare.apis.signal import Signal
 from nvflare.app_common.app_constant import AppConstants
-from custom.pt_constants import PTConstants
-from custom.pylon.pylon import PylonConfig
-from custom.pylon.utils.pretrain import *
+from pylon.utils.pretrain import *
+from model_constants import classes, labels_col, image_h, image_w
+from net import Net
 
 import torchvision
 from torchvision import datasets, transforms
@@ -42,12 +43,7 @@ from PIL import Image
 import pandas as pd
 import numpy as np
 
-labels_col = ['Cardiomegaly','Effusion','Edema']
-classes = 3
-image_w = 256
-image_h = 256
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# BASE_DIR = '/path'
 
 def dicom2array(path, voi_lut=True, fix_monochrome=True):
     """Convert DICOM file to numy array
@@ -84,7 +80,7 @@ def dicom2array(path, voi_lut=True, fix_monochrome=True):
 class XRayDataset(Dataset):
     def __init__(self, df, image_dir, transform=None, target_transform=None):
         self.img_files = df['Image'].tolist()
-        self.img_labels = df[labels_col].values.tolist()
+        self.img_labels = df[labels_col].values
         self.transform = transform
         self.target_transform = target_transform
         self.image_dir = image_dir
@@ -110,7 +106,7 @@ class XRayDataset(Dataset):
         image = image.unsqueeze(0)
         image = F.interpolate(image, size=image_w)
         image = image[0]
-        image = image.expand(3, -1, -1)
+        # image = image.expand(3, -1, -1)
         return image, label
 
 class Validator(Executor):
@@ -121,15 +117,10 @@ class Validator(Executor):
         self._validate_task_name = validate_task_name
 
         # Setup the model
-        net_conf = PylonConfig(
-            n_in=1,
-            n_out=classes,
-            up_type='2layer',
-            freeze='enc',
-        )
-        self.model = net_conf.make_model()
-        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        self.model = Net()
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
+
         self.batch_size = 32
         self.loss = nn.BCEWithLogitsLoss()
 
@@ -142,12 +133,11 @@ class Validator(Executor):
             site = "n"
 
         # Training setup
-        PATH_NAME = os.path.join(BASE_DIR, f'data_{site}')
-        IMAGE_PATH = os.path.join(PATH_NAME, 'selected_xray', 'aj-sira')
-        test = pd.read_csv(os.path.join(PATH_NAME, 'label', f'test_{site}.csv'))
+        PATH_NAME = '/path'
+        IMAGE_PATH = os.path.join(PATH_NAME, 'images')
+        test = pd.read_csv(os.path.join(PATH_NAME, 'label', f'test.csv'))
 
         test_dataset = XRayDataset(test, IMAGE_PATH)
-
         self.test_loader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False,
                                       num_workers=0)
 
@@ -199,6 +189,6 @@ class Validator(Executor):
                 labels = labels.to(self.device)
                 outputs = self.model(images)
                 outputs = outputs.pred
-                loss = self.loss(outputs, labels)
+                loss = self.loss(outputs, labels.float())
                 losses.append(loss.item())
         return np.mean(losses)

@@ -1,10 +1,12 @@
+import torch
 import torch.nn as nn
-from custom.pylon.pylon import PylonConfig
-from custom.pylon.utils.pretrain import *
-classes = 3 # number of findings
+from pylon.pylon import PylonConfig
+from pylon.utils.pretrain import *
+from model_constants import classes
 
 class Net(nn.Module):
     def __init__(self):
+        super(Net,self).__init__()
         net_conf = PylonConfig(
             n_in=1,
             n_out=classes,
