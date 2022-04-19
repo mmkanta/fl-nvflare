@@ -21,8 +21,8 @@ from nvflare.apis.signal import Signal
 from nvflare.app_common.abstract.model import make_model_learnable, model_learnable_to_dxo
 from nvflare.app_common.app_constant import AppConstants
 from nvflare.app_common.pt.pt_fed_utils import PTModelPersistenceFormatManager
-from custom.pt_constants import PTConstants
-from custom.model_constants import classes, labels_col, image_h, image_w
+from pt_constants import PTConstants
+from model_constants import classes, labels_col, image_h, image_w
 from net import Net
 
 import torchvision
@@ -35,7 +35,7 @@ from typing import List, Optional, Dict, Generator, NamedTuple, Any, Tuple, Unio
 import pandas as pd
 import numpy as np
 
-BASE_DIR = '/path'
+# BASE_DIR = '/path'
 
 def dicom2array(path, voi_lut=True, fix_monochrome=True):
     """Convert DICOM file to numy array
@@ -165,10 +165,10 @@ class Trainer(Executor):
             site = "n"
 
         # Training setup
-        PATH_NAME = os.path.join(BASE_DIR, f'data_{site}')
-        IMAGE_PATH = os.path.join(PATH_NAME, 'selected_xray', 'aj-sira')
-        train = pd.read_csv(os.path.join(PATH_NAME, 'label', f'train_{site}.csv'))
-        val = pd.read_csv(os.path.join(PATH_NAME, 'label', f'val_{site}.csv'))
+        PATH_NAME = '/path'
+        IMAGE_PATH = os.path.join(PATH_NAME, 'images')
+        train = pd.read_csv(os.path.join(PATH_NAME, 'label', f'test.csv'))
+        val = pd.read_csv(os.path.join(PATH_NAME, 'label', f'test.csv'))
 
         train_dataset = XRayDataset(train, IMAGE_PATH) # transform?
         val_dataset = XRayDataset(val, IMAGE_PATH)

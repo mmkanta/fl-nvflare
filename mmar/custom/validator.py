@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import os
 
 import pydicom
@@ -30,10 +31,8 @@ from nvflare.apis.fl_context import FLContext
 from nvflare.apis.shareable import Shareable, make_reply
 from nvflare.apis.signal import Signal
 from nvflare.app_common.app_constant import AppConstants
-from custom.pt_constants import PTConstants
-from custom.pylon.pylon import PylonConfig
-from custom.pylon.utils.pretrain import *
-from custom.model_constants import classes, labels_col, image_h, image_w
+from pylon.utils.pretrain import *
+from model_constants import classes, labels_col, image_h, image_w
 from net import Net
 
 import torchvision
@@ -44,7 +43,7 @@ from PIL import Image
 import pandas as pd
 import numpy as np
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# BASE_DIR = '/path'
 
 def dicom2array(path, voi_lut=True, fix_monochrome=True):
     """Convert DICOM file to numy array
@@ -134,9 +133,9 @@ class Validator(Executor):
             site = "n"
 
         # Training setup
-        PATH_NAME = os.path.join(BASE_DIR, f'data_{site}')
-        IMAGE_PATH = os.path.join(PATH_NAME, 'selected_xray', 'aj-sira')
-        test = pd.read_csv(os.path.join(PATH_NAME, 'label', f'test_{site}.csv'))
+        PATH_NAME = '/path'
+        IMAGE_PATH = os.path.join(PATH_NAME, 'images')
+        test = pd.read_csv(os.path.join(PATH_NAME, 'label', f'test.csv'))
 
         test_dataset = XRayDataset(test, IMAGE_PATH)
         self.test_loader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False,
