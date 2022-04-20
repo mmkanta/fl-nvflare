@@ -133,7 +133,7 @@ class Validator(Executor):
             site = "n"
 
         # Training setup
-        PATH_NAME = '/path'
+        PATH_NAME = '/workspace/nvflare/fl-nvflare/data/'
         IMAGE_PATH = os.path.join(PATH_NAME, 'images')
         test = pd.read_csv(os.path.join(PATH_NAME, 'label', f'test.csv'))
 
