@@ -2,10 +2,10 @@ from segmentation_models_pytorch.base import (SegmentationHead,
                                               SegmentationModel)
 from segmentation_models_pytorch.encoders import get_encoder
 from torch import nn
-from trainer.start import *
-from utils.pretrain import *
+from .trainer.start import *
+from .utils.pretrain import *
 
-from model.common import *
+from .model.common import *
 
 
 @dataclass

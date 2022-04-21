@@ -165,12 +165,12 @@ class Trainer(Executor):
             site = "n"
 
         # Training setup
-        PATH_NAME = '/path'
+        PATH_NAME = '/workspace/nvflare/fl-nvflare/data/'
         IMAGE_PATH = os.path.join(PATH_NAME, 'images')
-        train = pd.read_csv(os.path.join(PATH_NAME, 'label', f'test.csv'))
-        val = pd.read_csv(os.path.join(PATH_NAME, 'label', f'test.csv'))
+        train = pd.read_csv(os.path.join(PATH_NAME, 'label', f'train.csv'))
+        val = pd.read_csv(os.path.join(PATH_NAME, 'label', f'val.csv'))
 
-        train_dataset = XRayDataset(train, IMAGE_PATH) # transform?
+        train_dataset = XRayDataset(train, IMAGE_PATH, transform=self.transform) # transform?
         val_dataset = XRayDataset(val, IMAGE_PATH)
         self._train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False,
                                         num_workers=0)
@@ -198,7 +198,7 @@ class Trainer(Executor):
         self.model.load_state_dict(state_dict=weights)
 
         # Basic training
-        min_val_loss = 10
+        min_val_loss = 100
         for epoch in range(self._epochs):
             # Train
             self.model.train()
