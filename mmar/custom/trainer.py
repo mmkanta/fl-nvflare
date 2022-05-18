@@ -158,17 +158,23 @@ class Trainer(Executor):
         self.client_name = fl_ctx.get_identity_name()
 
         ### PATH
-        site = ""
-        if self.client_name == "site-c":
-            site = "c"
-        else:
-            site = "n"
+#         site = ""
+#         if self.client_name == "site-c":
+#             site = "c"
+#         else:
+#             site = "n"
+        site = self.client_name
 
         # Training setup
-        PATH_NAME = '/workspace/nvflare/fl-nvflare/data/'
-        IMAGE_PATH = os.path.join(PATH_NAME, 'images')
-        train = pd.read_csv(os.path.join(PATH_NAME, 'label', f'train.csv'))
-        val = pd.read_csv(os.path.join(PATH_NAME, 'label', f'val.csv'))
+#         PATH_NAME = '/workspace/nvflare/fl-nvflare/data/'
+#         SITE_NAME = PATH_NAME + site + '/'
+#         IMAGE_PATH = os.path.join(PATH_NAME, 'image')
+#         train = pd.read_csv(os.path.join(PATH_NAME, 'label', f'train.csv'))
+#         val = pd.read_csv(os.path.join(PATH_NAME, 'label', f'val.csv'))
+        PATH_NAME = '/workspace/nvflare/fl-nvflare/data/data_'+site+'/'
+        IMAGE_PATH = PATH_NAME + "image/"
+        train = pd.read_csv(PATH_NAME+'train_'+site+'.csv')
+        val = pd.read_csv(PATH_NAME+'val_'+site+'.csv')
 
         train_dataset = XRayDataset(train, IMAGE_PATH, transform=self.transform) # transform?
         val_dataset = XRayDataset(val, IMAGE_PATH)
@@ -195,17 +201,23 @@ class Trainer(Executor):
             data=self.model.state_dict(), default_train_conf=self._default_train_conf)
 
     def local_train(self, fl_ctx, weights, abort_signal):
+        # self.log_info(fl_ctx, "in local train")
         self.model.load_state_dict(state_dict=weights)
+        # self.log_info(fl_ctx, "load state dict complete")
 
         # Basic training
         min_val_loss = 100
         for epoch in range(self._epochs):
+#             self.log_info(fl_ctx, "first epoch")
             # Train
             self.model.train()
+#             self.log_info(fl_ctx, "before reading img")
             losses = []
             for i, (images, labels) in enumerate(self._train_loader):
+#                 self.log_info(fl_ctx, "first image")
                 images = images.to(self.device)
                 labels = labels.to(self.device)
+#                 self.log_info(fl_ctx, "load image complete")
                 with torch.set_grad_enabled(True):
                     outputs = self.model(images)
                     outputs = outputs.pred
@@ -249,6 +261,7 @@ class Trainer(Executor):
         try:
             if task_name == self._train_task_name:
                 self.setup(fl_ctx)
+                # self.log_info(fl_ctx, "setup complete")
                 # Get model weights
                 try:
                     dxo = from_shareable(shareable)
@@ -263,6 +276,7 @@ class Trainer(Executor):
 
                 # Convert weights to tensor. Run training
                 torch_weights = {k: torch.as_tensor(v) for k, v in dxo.data.items()}
+                # self.log_info(fl_ctx, "set weight complete")
                 self.early_stopping = EarlyStopping(patience=10)
                 self.local_train(fl_ctx, torch_weights, abort_signal)
 

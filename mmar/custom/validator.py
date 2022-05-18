@@ -126,16 +126,21 @@ class Validator(Executor):
 
     def setup(self, fl_ctx):
         self.client_name = fl_ctx.get_identity_name()
-        site = ""
-        if self.client_name == "site-c":
-            site = "c"
-        else:
-            site = "n"
+#         site = ""
+#         if self.client_name == "site-c":
+#             site = "c"
+#         else:
+#             site = "n"
+        site = self.client_name
 
         # Training setup
-        PATH_NAME = '/workspace/nvflare/fl-nvflare/data/'
-        IMAGE_PATH = os.path.join(PATH_NAME, 'images')
-        test = pd.read_csv(os.path.join(PATH_NAME, 'label', f'test.csv'))
+#         PATH_NAME = '/workspace/nvflare/fl-nvflare/data/'
+#         IMAGE_PATH = os.path.join(PATH_NAME, 'images')
+#         test = pd.read_csv(os.path.join(PATH_NAME, 'label', f'test.csv'))
+        PATH_NAME = '/workspace/nvflare/fl-nvflare/data/data_'+site+'/'
+        IMAGE_PATH = PATH_NAME + "image/"
+        
+        test = pd.read_csv(PATH_NAME+'test_'+site+'.csv')
 
         test_dataset = XRayDataset(test, IMAGE_PATH)
         self.test_loader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False,

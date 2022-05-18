@@ -26,7 +26,7 @@
       "path": "nvflare.app_common.aggregators.intime_accumulate_model_aggregator.InTimeAccumulateWeightedAggregator",
       "args": {
         "expected_data_kind" : "WEIGHTS",
-        "aggregation_weights" : {"c":3, "n":1, "p" : 1 , "v" : 1}
+        "aggregation_weights" : {"chula":1, "nih":2, "padchest":1, "mimic":2}
       }
     },
     {
